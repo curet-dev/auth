@@ -1,6 +1,6 @@
 # auth
 
-Turborepo mit zwei Next.js-Apps und einem Go-Backend – jede App ist ein eigenes Vercel-Projekt.
+Turborepo mit zwei Next.js-Apps und einem Go-Backend – zusammen als **ein** Vercel-Projekt deploybar ([Vercel Services](https://vercel.com/docs/services)).
 
 ```
 apps/
@@ -15,12 +15,15 @@ packages/
 
 ## Architektur
 
-Die **web**-App ist der öffentliche Einstiegspunkt. Per Rewrites (`apps/web/next.config.ts`) leitet sie
+Alle Apps laufen unter **einer Domain**:
 
-- `/dashboard/*` an die **dashboard**-App weiter ([Next.js Multi-Zones](https://nextjs.org/docs/app/guides/multi-zones)) und
-- `/api/*` an die **Go-API**.
+| Pfad           | App                                |
+| -------------- | ---------------------------------- |
+| `/api/*`       | Go-API (`apps/api`)                |
+| `/dashboard/*` | Dashboard (`apps/dashboard`, `basePath: "/dashboard"`) |
+| alles andere   | Landing Page (`apps/web`)          |
 
-Dadurch läuft alles unter einer Domain, und das Session-Cookie (`httpOnly`-JWT, von der API gesetzt) funktioniert ohne CORS oder Cross-Domain-Cookies.
+Auf Vercel übernimmt das die `vercel.json` im Repo-Root (Services + Rewrites), lokal die Rewrites in `apps/web/next.config.ts`. Weil alles auf derselben Origin liegt, funktioniert das Session-Cookie (`httpOnly`-JWT, von der API gesetzt) ohne CORS oder Cross-Domain-Cookies.
 
 ### API-Endpunkte
 
@@ -66,21 +69,31 @@ TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/auth?sslmode=disab
 
 ## Deployment auf Vercel
 
-Das Repo wird als **drei Vercel-Projekte** importiert (gleiches Git-Repo, jeweils anderes *Root Directory*):
+Das ganze Repo ist **ein Vercel-Projekt** mit drei [Services](https://vercel.com/docs/services) (Beta). Die `vercel.json` im Root beschreibt, welche App wo liegt und welche Pfade sie bekommt – Vercel baut jede App separat (Next.js bzw. Go) und deployt alles zusammen unter einer URL.
 
-| Projekt   | Root Directory   | Framework Preset | Environment Variables      |
-| --------- | ---------------- | ---------------- | -------------------------- |
-| api       | `apps/api`       | Other            | `JWT_SECRET`, `DATABASE_URL` |
-| dashboard | `apps/dashboard` | Next.js          | `API_URL`, `WEB_URL`       |
-| web       | `apps/web`       | Next.js          | `API_URL`, `DASHBOARD_URL` |
+```json
+{
+  "services": {
+    "web": { "root": "apps/web/", "framework": "nextjs" },
+    "dashboard": { "root": "apps/dashboard/", "framework": "nextjs" },
+    "api": { "root": "apps/api/", "framework": "go" }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": { "service": "api" } },
+    { "source": "/dashboard", "destination": { "service": "dashboard" } },
+    { "source": "/dashboard/(.*)", "destination": { "service": "dashboard" } },
+    { "source": "/(.*)", "destination": { "service": "web" } }
+  ]
+}
+```
 
-Reihenfolge:
+Einrichtung:
 
-1. **Datenbank anlegen:** im api-Projekt unter *Storage → Create Database* **Neon (Postgres)** wählen und mit dem Projekt verbinden. Vercel setzt `DATABASE_URL` (gepoolte Verbindung) dann automatisch. Alternativ jede andere Postgres-URL (Supabase, RDS, …) manuell als `DATABASE_URL` eintragen.
-2. **api** deployen. Die Go-Funktion liegt in `apps/api/api/index.go`; `apps/api/vercel.json` leitet alle Pfade dorthin. `JWT_SECRET` setzen (`openssl rand -base64 32`). Die Tabellen werden beim ersten Request angelegt; `GET /api/health` prüft die DB-Verbindung.
-3. **dashboard** deployen mit `API_URL=https://<api-projekt>.vercel.app` und `WEB_URL=https://<web-domain>`.
-4. **web** deployen mit `API_URL=https://<api-projekt>.vercel.app` und `DASHBOARD_URL=https://<dashboard-projekt>.vercel.app`.
+1. *Add New → Project* → Repo importieren. **Root Directory** bleibt das Repo-Root (`./`), **Framework Preset:** `Services`.
+2. **Environment Variable** `JWT_SECRET` setzen (`openssl rand -base64 32`).
+3. *Deploy*.
+4. **Datenbank:** im Projekt unter *Storage → Create Database* **Neon (Postgres)** wählen und verbinden – Vercel setzt `DATABASE_URL` automatisch. Danach einmal *Redeploy*. `GET /api/health` prüft die DB-Verbindung; die Tabellen werden beim Start angelegt.
 
-Danach nur die Domain des **web**-Projekts verwenden – Dashboard und API sind darüber unter `/dashboard` und `/api` erreichbar.
+Eine neue App kommt dazu, indem man sie unter `apps/` anlegt, als Service in `vercel.json` einträgt und eine Rewrite-Regel für ihren Pfad ergänzt.
 
-Tipp: In den Projekteinstellungen unter *Git → Ignored Build Step* `npx turbo-ignore` eintragen, damit nur betroffene Apps neu gebaut werden.
+Die Go-API wird über das Go-Preset gebaut: Einstiegspunkt ist `apps/api/cmd/server/main.go`, der Server lauscht auf `PORT`.

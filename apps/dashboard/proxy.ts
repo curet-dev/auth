@@ -8,10 +8,9 @@ export function proxy(request: NextRequest) {
   return NextResponse.redirect(new URL("/login", webOrigin(request)));
 }
 
-// The dashboard is usually reached through the web app's rewrite, so send
-// users back to the web app's origin rather than the dashboard deployment.
+// Locally the dashboard is reached through the web app's rewrite, so use the
+// forwarded host to send users back to the web app rather than to :3001.
 function webOrigin(request: NextRequest) {
-  if (process.env.WEB_URL) return process.env.WEB_URL;
   const host = request.headers.get("x-forwarded-host");
   const proto = request.headers.get("x-forwarded-proto") ?? "https";
   return host ? `${proto}://${host}` : request.nextUrl.origin;

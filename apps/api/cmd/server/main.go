@@ -1,4 +1,5 @@
-// Command server runs the API as a regular HTTP server for local development.
+// Command server runs the API as an HTTP server. Vercel's Go framework preset
+// picks up cmd/server/main.go as the entrypoint and sets PORT.
 package main
 
 import (

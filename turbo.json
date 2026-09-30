@@ -6,7 +6,7 @@
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "bin/**"],
-      "env": ["API_URL", "DASHBOARD_URL", "WEB_URL"]
+      "env": ["API_URL", "DASHBOARD_URL"]
     },
     "check-types": {
       "dependsOn": ["^check-types"]

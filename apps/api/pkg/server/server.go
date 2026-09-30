@@ -1,5 +1,5 @@
 // Package server contains the HTTP routes of the API. It is shared by the
-// local dev server (cmd/server) and the Vercel function (api/index.go).
+// server binary in cmd/server, which runs locally and on Vercel.
 package server
 
 import (
