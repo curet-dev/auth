@@ -5,19 +5,20 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "bin/**"],
-      "env": ["API_URL", "DASHBOARD_URL"]
+      "outputs": ["dist/**", "bin/**"]
     },
-    "check-types": {
-      "dependsOn": ["^check-types"]
-    },
-    "test": {
-      "env": ["TEST_DATABASE_URL"]
-    },
+    "check-types": { "dependsOn": ["^check-types"] },
+    "test": { "env": ["TEST_DATABASE_URL"] },
     "dev": {
       "cache": false,
       "persistent": true,
-      "passThroughEnv": ["DATABASE_URL", "JWT_SECRET", "PORT"]
+      "passThroughEnv": [
+        "API_URL",
+        "DASHBOARD_URL",
+        "DATABASE_URL",
+        "JWT_SECRET",
+        "PORT"
+      ]
     }
   }
 }

@@ -1,0 +1,35 @@
+---
+import { buttonClass } from "@repo/ui/button";
+import Layout from "../layouts/Layout.astro";
+
+const features = [
+  { title: "Astro + React", text: "Schnelle Landing Page und ein React-Dashboard mit Vite." },
+  { title: "Go Backend", text: "Schlanke API mit Postgres und JWT-Session-Cookies." },
+  { title: "Vercel ready", text: "Alle Apps als ein Projekt unter einer Domain deploybar." },
+];
+---
+
+<Layout>
+  <div class="mx-auto w-full max-w-6xl px-4">
+    <section class="py-24 text-center">
+      <h1 class="text-4xl font-bold tracking-tight sm:text-6xl">Starte dein Projekt in Minuten</h1>
+      <p class="mx-auto mt-6 max-w-xl text-lg text-zinc-600 dark:text-zinc-400">
+        Ein Turborepo mit Astro, React-Dashboard und Go Backend – bereit für Vercel.
+      </p>
+      <div class="mt-10 flex justify-center gap-3">
+        <a href="/register" class={buttonClass("primary")}>Jetzt registrieren</a>
+        <a href="/login" class={buttonClass("secondary")}>Ich habe schon einen Account</a>
+      </div>
+    </section>
+    <section class="grid gap-4 pb-24 sm:grid-cols-3">
+      {
+        features.map((f) => (
+          <div class="rounded-lg border border-zinc-200 p-6 dark:border-zinc-800">
+            <h2 class="font-semibold">{f.title}</h2>
+            <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{f.text}</p>
+          </div>
+        ))
+      }
+    </section>
+  </div>
+</Layout>

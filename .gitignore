@@ -1,6 +1,5 @@
 node_modules
 .turbo
-.next
 out
 dist
 bin
@@ -8,5 +7,5 @@ bin
 .env
 .env*.local
 *.tsbuildinfo
-next-env.d.ts
+.astro
 .DS_Store

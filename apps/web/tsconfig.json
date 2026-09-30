@@ -1,8 +1,5 @@
 {
-  "extends": "@repo/typescript-config/nextjs.json",
-  "compilerOptions": {
-    "paths": { "@/*": ["./*"] }
-  },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "extends": "@repo/typescript-config/react-library.json",
+  "include": [".astro/types.d.ts", "src"],
+  "exclude": ["dist"]
 }

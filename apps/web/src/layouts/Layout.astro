@@ -1,0 +1,26 @@
+---
+import Header from "../components/Header.astro";
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+}
+
+const { title = "Auth" } = Astro.props;
+---
+
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Turborepo starter with Astro, React and a Go backend" />
+    <title>{title}</title>
+  </head>
+  <body class="flex min-h-dvh flex-col">
+    <Header />
+    <main class="flex flex-1 flex-col">
+      <slot />
+    </main>
+  </body>
+</html>

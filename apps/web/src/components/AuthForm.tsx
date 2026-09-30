@@ -1,7 +1,4 @@
-"use client";
-
-import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type SubmitEvent } from "react";
 import { Button } from "@repo/ui/button";
 
 type Mode = "login" | "register";
@@ -29,9 +26,13 @@ const inputClass =
 export function AuthForm({ mode }: { mode: Mode }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // The form is server-rendered by Astro; keep it disabled until React has
+  // hydrated so it is never submitted natively.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
   const t = copy[mode];
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setPending(true);
@@ -45,8 +46,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error ?? "Etwas ist schiefgelaufen");
       }
-      // The dashboard is a separate Next.js zone, so use a full navigation.
-      window.location.assign("/dashboard");
+      // The dashboard is a separate app, so use a full page navigation.
+      window.location.assign("/dashboard/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Etwas ist schiefgelaufen");
       setPending(false);
@@ -56,7 +57,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
   return (
     <div className="mx-auto w-full max-w-sm px-4 py-24">
       <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
-      <form onSubmit={onSubmit} className="mt-8 space-y-4">
+      <form method="post" onSubmit={onSubmit} className="mt-8 space-y-4">
         {mode === "register" && (
           <label className="block text-sm font-medium">
             Name
@@ -83,15 +84,15 @@ export function AuthForm({ mode }: { mode: Mode }) {
             {error}
           </p>
         )}
-        <Button type="submit" disabled={pending} className="w-full">
+        <Button type="submit" disabled={!hydrated || pending} className="w-full">
           {pending ? "Bitte warten…" : t.submit}
         </Button>
       </form>
       <p className="mt-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
         {t.switchText}{" "}
-        <Link href={t.switchHref} className="font-medium text-indigo-600 hover:underline">
+        <a href={t.switchHref} className="font-medium text-indigo-600 hover:underline">
           {t.switchLink}
-        </Link>
+        </a>
       </p>
     </div>
   );

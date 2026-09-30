@@ -1,0 +1,16 @@
+---
+import { buttonClass } from "@repo/ui/button";
+import { Logo } from "@repo/ui/logo";
+---
+
+<header class="border-b border-zinc-200 dark:border-zinc-800">
+  <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+    <a href="/">
+      <Logo />
+    </a>
+    <nav class="flex items-center gap-2">
+      <a href="/login" class={buttonClass("secondary")}>Login</a>
+      <a href="/register" class={buttonClass("primary")}>Registrieren</a>
+    </nav>
+  </div>
+</header>
