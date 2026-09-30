@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "echo 'Go functions are compiled by the Vercel Go runtime'",
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+}
