@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"strings"
@@ -23,11 +24,27 @@ type User struct {
 	passwordHash []byte
 }
 
-// UserStore persists users. MemoryStore is the only implementation for now;
-// swap in a database-backed store for production.
+// UserStore persists users. PostgresStore is used whenever DATABASE_URL is
+// set; MemoryStore is a fallback for tests and quick local runs.
 type UserStore interface {
-	Create(email, name, password string) (*User, error)
-	Authenticate(email, password string) (*User, error)
+	Create(ctx context.Context, email, name, password string) (*User, error)
+	Authenticate(ctx context.Context, email, password string) (*User, error)
+	Ping(ctx context.Context) error
+}
+
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
+func hashPassword(password string) ([]byte, error) {
+	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+}
+
+func checkPassword(u *User, password string) (*User, error) {
+	if bcrypt.CompareHashAndPassword(u.passwordHash, []byte(password)) != nil {
+		return nil, ErrInvalidCredentials
+	}
+	return u, nil
 }
 
 type MemoryStore struct {
@@ -40,13 +57,9 @@ func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{byEmail: map[string]*User{}}
 }
 
-func normalizeEmail(email string) string {
-	return strings.ToLower(strings.TrimSpace(email))
-}
-
-func (s *MemoryStore) Create(email, name, password string) (*User, error) {
+func (s *MemoryStore) Create(_ context.Context, email, name, password string) (*User, error) {
 	email = normalizeEmail(email)
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hash, err := hashPassword(password)
 	if err != nil {
 		return nil, err
 	}
@@ -68,15 +81,14 @@ func (s *MemoryStore) Create(email, name, password string) (*User, error) {
 	return u, nil
 }
 
-func (s *MemoryStore) Authenticate(email, password string) (*User, error) {
+func (s *MemoryStore) Authenticate(_ context.Context, email, password string) (*User, error) {
 	s.mu.RLock()
 	u, ok := s.byEmail[normalizeEmail(email)]
 	s.mu.RUnlock()
 	if !ok {
 		return nil, ErrInvalidCredentials
 	}
-	if bcrypt.CompareHashAndPassword(u.passwordHash, []byte(password)) != nil {
-		return nil, ErrInvalidCredentials
-	}
-	return u, nil
+	return checkPassword(u, password)
 }
+
+func (s *MemoryStore) Ping(context.Context) error { return nil }

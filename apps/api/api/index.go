@@ -3,13 +3,32 @@
 package handler
 
 import (
+	"context"
+	"log"
 	"net/http"
+	"sync"
 
 	"github.com/curet-dev/auth/apps/api/pkg/server"
 )
 
-var app = server.New(server.ConfigFromEnv())
+var (
+	app     *server.Server
+	initErr error
+	once    sync.Once
+)
 
+// Handler lazily initialises the server (DB pool + migrations) once per
+// function instance and reuses it for subsequent invocations.
 func Handler(w http.ResponseWriter, r *http.Request) {
+	once.Do(func() {
+		app, initErr = server.FromEnv(context.Background())
+		if initErr != nil {
+			log.Printf("init: %v", initErr)
+		}
+	})
+	if initErr != nil {
+		http.Error(w, `{"error":"server misconfigured"}`, http.StatusInternalServerError)
+		return
+	}
 	app.ServeHTTP(w, r)
 }

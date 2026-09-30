@@ -3,6 +3,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -18,8 +19,9 @@ import (
 const sessionCookie = "session"
 
 type Config struct {
-	JWTSecret  string
-	SessionTTL time.Duration
+	JWTSecret   string
+	SessionTTL  time.Duration
+	DatabaseURL string
 }
 
 func ConfigFromEnv() Config {
@@ -28,7 +30,35 @@ func ConfigFromEnv() Config {
 		log.Println("WARNING: JWT_SECRET is not set, using an insecure development secret")
 		secret = "dev-secret-change-me"
 	}
-	return Config{JWTSecret: secret, SessionTTL: 7 * 24 * time.Hour}
+	return Config{
+		JWTSecret:   secret,
+		SessionTTL:  7 * 24 * time.Hour,
+		DatabaseURL: os.Getenv("DATABASE_URL"),
+	}
+}
+
+// FromEnv builds a server from environment variables. With DATABASE_URL set
+// users are stored in Postgres, otherwise in memory (not allowed on Vercel,
+// where every cold start would lose all users).
+func FromEnv(ctx context.Context) (*Server, error) {
+	cfg := ConfigFromEnv()
+	if cfg.DatabaseURL == "" {
+		if os.Getenv("VERCEL") != "" {
+			return nil, errors.New("DATABASE_URL is not set")
+		}
+		log.Println("WARNING: DATABASE_URL is not set, users are stored in memory")
+		return New(cfg, auth.NewMemoryStore()), nil
+	}
+
+	store, err := auth.NewPostgresStore(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return nil, err
+	}
+	if err := store.Migrate(ctx); err != nil {
+		store.Close()
+		return nil, err
+	}
+	return New(cfg, store), nil
 }
 
 type Server struct {
@@ -37,9 +67,9 @@ type Server struct {
 	mux    *http.ServeMux
 }
 
-func New(cfg Config) *Server {
+func New(cfg Config, users auth.UserStore) *Server {
 	s := &Server{
-		users:  auth.NewMemoryStore(),
+		users:  users,
 		tokens: auth.NewTokens(cfg.JWTSecret, cfg.SessionTTL),
 		mux:    http.NewServeMux(),
 	}
@@ -58,7 +88,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) health(w http.ResponseWriter, r *http.Request) {
+	if err := s.users.Ping(r.Context()); err != nil {
+		log.Printf("health: database ping failed: %v", err)
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "database unavailable"})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -86,12 +121,13 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := s.users.Create(in.Email, in.Name, in.Password)
+	u, err := s.users.Create(r.Context(), in.Email, in.Name, in.Password)
 	if errors.Is(err, auth.ErrEmailTaken) {
 		writeError(w, http.StatusConflict, err.Error())
 		return
 	}
 	if err != nil {
+		log.Printf("register: %v", err)
 		writeError(w, http.StatusInternalServerError, "could not create user")
 		return
 	}
@@ -103,9 +139,14 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
-	u, err := s.users.Authenticate(in.Email, in.Password)
-	if err != nil {
+	u, err := s.users.Authenticate(r.Context(), in.Email, in.Password)
+	if errors.Is(err, auth.ErrInvalidCredentials) {
 		writeError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	if err != nil {
+		log.Printf("login: %v", err)
+		writeError(w, http.StatusInternalServerError, "could not sign in")
 		return
 	}
 	s.startSession(w, r, u, http.StatusOK)

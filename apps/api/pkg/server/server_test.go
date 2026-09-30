@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/curet-dev/auth/apps/api/pkg/auth"
 )
 
 func do(t *testing.T, s *Server, method, path, body string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
@@ -20,7 +22,7 @@ func do(t *testing.T, s *Server, method, path, body string, cookies ...*http.Coo
 }
 
 func TestAuthFlow(t *testing.T) {
-	s := New(Config{JWTSecret: "test", SessionTTL: time.Hour})
+	s := New(Config{JWTSecret: "test", SessionTTL: time.Hour}, auth.NewMemoryStore())
 
 	if rec := do(t, s, "GET", "/api/auth/me", ""); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("me without session: got %d", rec.Code)
@@ -54,7 +56,7 @@ func TestAuthFlow(t *testing.T) {
 }
 
 func TestRegisterValidation(t *testing.T) {
-	s := New(Config{JWTSecret: "test", SessionTTL: time.Hour})
+	s := New(Config{JWTSecret: "test", SessionTTL: time.Hour}, auth.NewMemoryStore())
 	for _, body := range []string{
 		`{"email":"nope","password":"supersecret","name":"Ada"}`,
 		`{"email":"a@example.com","password":"short","name":"Ada"}`,
